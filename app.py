@@ -4,12 +4,19 @@ import yt_dlp
 
 app = Flask(__name__)
 
+# Root endpoint for testing
+@app.route('/', methods=['GET'])
+def hello_world():
+    return "Hello, World!"
+
 @app.route('/download', methods=['POST'])
 def download_videos():
     data = request.json
     video_links = data.get('video_links')
-    save_path = 'downloads'  # Save path on the server
+    if not video_links:
+        return jsonify({"error": "No video links provided"}), 400
 
+    save_path = 'downloads'  # Directory to save downloaded videos
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
