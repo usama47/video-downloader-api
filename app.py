@@ -12,32 +12,29 @@ def hello_world():
 @app.route("/download", methods=["POST"])
 def download_videos():
     data = request.json
-    video_links = data.get("video_links")
-
-    if not video_links or not isinstance(video_links, list):
-        return jsonify({"error": "Please provide a list of video links"}), 400
-
-    ydl_opts = {
-        "format": "best",  # Stream the best available quality
-        "noplaylist": True,
-    }
-
+    video_links = data.get("video_links", [])
     results = []
 
-    try:
-        for video_url in video_links:
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(video_url, download=False)
-                    title = info.get("title", "Unknown Title")
-                    direct_url = info["url"]
-                    results.append({"url": video_url, "title": title, "download_url": direct_url})
-            except Exception as e:
-                results.append({"url": video_url, "error": str(e)})
+    for url in video_links:
+        try:
+            ydl_opts = {
+                "outtmpl": "%(title)s.%(ext)s",
+                "format": "best",
+                "quiet": True,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=False)
+                results.append({
+                    "title": info_dict.get("title"),
+                    "download_url": ydl.prepare_filename(info_dict),
+                })
+        except Exception as e:
+            results.append({
+                "url": url,
+                "error": str(e),
+            })
 
-        return jsonify({"results": results}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"results": results}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
