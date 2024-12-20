@@ -1,38 +1,43 @@
 from flask import Flask, request, jsonify
-import os
+from flask_cors import CORS
 import yt_dlp
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
-# Root endpoint for testing
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def hello_world():
     return "Hello, World!"
 
-@app.route('/download', methods=['POST'])
+@app.route("/download", methods=["POST"])
 def download_videos():
     data = request.json
-    video_links = data.get('video_links')
-    if not video_links:
-        return jsonify({"error": "No video links provided"}), 400
+    video_links = data.get("video_links")
 
-    save_path = 'downloads'  # Directory to save downloaded videos
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    if not video_links or not isinstance(video_links, list):
+        return jsonify({"error": "Please provide a list of video links"}), 400
 
     ydl_opts = {
-        "outtmpl": os.path.join(save_path, "%(title)s.%(ext)s"),
-        "format": "best",
-        "nocheckcertificate": True,
-        "force_ipv4": True,
+        "format": "best",  # Stream the best available quality
+        "noplaylist": True,
     }
 
+    results = []
+
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download(video_links)
-        return jsonify({"message": "Videos downloaded successfully"}), 200
+        for video_url in video_links:
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(video_url, download=False)
+                    title = info.get("title", "Unknown Title")
+                    direct_url = info["url"]
+                    results.append({"url": video_url, "title": title, "download_url": direct_url})
+            except Exception as e:
+                results.append({"url": video_url, "error": str(e)})
+
+        return jsonify({"results": results}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
